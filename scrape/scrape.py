@@ -79,12 +79,38 @@ def fixParam(f, t, n, p):
     return (
         "String"
         if p == "string"
+        else "Hex"
+        if p == "hex"
+        else "HTMLElement"
+        if p == "DOMElement"
+        else "BlendingMode"
+        if p == "Blending"
         else "Number"
         if p == "number"
         else "Number"
         if p == "Radians"
-        else "TextureFormat"
+        else "FormatConstant"
         if (p == "Constant") and (f == "FramebufferTexture")
+        else "EncodingConstant"
+        if (p == "Constant") and (f == "MeshDepthMaterial")
+        else "ToneMappingConstant"
+        if (p == "Constant") and (f == "WebGLRenderer")
+        else "InterpolationModeConstant"
+        if (p == "Constant") and (f == "KeyframeTrack" or f == "BooleanKeyframeTrack" or f == "StringKeyframeTrack" or f == "QuaternionKeyframeTrack") # more nuanced needed?
+        else "TypeConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "type")
+        else "MappingModeConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "mapping")
+        else "WrappingModeConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "wrapS")
+        else "WrappingModeConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "wrapT")
+        else "MagnificationFilterConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "magFilter")
+        else "MinificationFilterConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "minFilter")
+        else "FormatConstant"
+        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "format")
         else "Material"
         if p == "material"
         else "Material"
@@ -256,6 +282,17 @@ for root, dirs, files in os.walk("./three.js/docs/api/en", topdown=False):
                                 .replace("]", "")
                                 .split(" ")
                             )
+                            # internal, so skip
+                            # https://threejs.org/docs/?q=WebGLRenderer#api/en/renderers/WebGLRenderer.renderLists
+                            if (property[1] == "renderLists") and (property[0] == "WebGLRenderLists"):
+                                continue
+                            # Shadow maps are objects, so fill this in later
+                            if (property[1] == "shadowMap"):
+                                property[0] = "Object"
+                            if (property[1] == ".generateMipmaps"):
+                                property[1] = "generateMipmaps"
+                            if (property[1] == "generateMipmaps"):
+                                property[0] = "Boolean"
                             property = Property(
                                 property[1],
                                 fixParam(
@@ -377,6 +414,7 @@ for root, dirs, files in os.walk("./three.js/docs/api/en", topdown=False):
 
 TYPES = set()
 
+
 def massageArg(arg):
     return (
         arg.tp
@@ -385,29 +423,35 @@ def massageArg(arg):
     )
 
 
-CHECKING = "Constant"
-
-
+CHECKING = "???"
+TEXTURE_PROPS = {}
 for fi in FILES:
     if fi.ctor is not None:
         for arg in fi.ctor.args:
-            TYPES.add(massageArg(arg))
-            if arg.tp == CHECKING:
-                print(fi.name,'ctor', arg)
+            arg = massageArg(arg)
+            TYPES.add(arg)
+            if arg == CHECKING:
+                print(fi.name, "ctor", arg)
     if fi.properties is not None:
-        for prop in fi.properties:
-            TYPES.add(massageArg(prop))
-            if arg.tp == CHECKING:
-                print(fi.name, fi, prop)
+        for prop_ in fi.properties:
+            if '[' in prop_.tp and 'Texture' in prop_.tp:
+                prop_.tp = TEXTURE_PROPS[prop_.name]
+            prop = massageArg(prop_)
+            if fi.name == "Texture":
+                TEXTURE_PROPS[prop_.name] = prop                
+            TYPES.add(prop)
+            if prop == CHECKING:
+                print(fi.name, prop, prop_)
     if fi.methods is not None:
         for method in fi.methods:
             TYPES.add(method.retval)
             if method.retval == CHECKING:
-                print(fi.name, 'retval', method)
+                print(fi.name, "retval", method)
             for arg in method.args:
-                TYPES.add(massageArg(arg))
-                if arg.tp == CHECKING:
-                    print(fi.name, 'prop', arg)
+                arg = massageArg(arg)
+                TYPES.add(arg)
+                if arg == CHECKING:
+                    print(fi.name, "prop", arg)
 
 FILENAMES = set()
 for fi in FILES:
@@ -416,7 +460,7 @@ for fi in FILES:
 
 ######
 ### Code to help identify tricky types
-for tp in TYPES:
+for tp in sorted(TYPES):
     if (
         (tp not in FILENAMES)
         and ("_" not in tp)
@@ -426,6 +470,7 @@ for tp in TYPES:
         and (tp != "Object")
         and (tp != "String")
         and (tp != "Boolean")
+        and (tp != "null")
         and (tp != "Integer")
         and (tp != "Hex")
         and (tp != "Number")
@@ -437,8 +482,17 @@ for tp in TYPES:
             tp != "Vector"
         )  # if a funciton has vector as an argument, then it works either for Vector2 or for Vector3, and the API on top of it should have two functions for both vector types
         and (
+            tp != "WebGLShader"
+        )  # https://developer.mozilla.org/en-US/docs/Web/API/WebGLShader
+        and (
+            tp != "Shader"
+        )  # https://developer.mozilla.org/en-US/docs/Web/API/WebGLShader
+        and (
             tp != "TypedArray"
         )  # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray
+        and (
+            tp != "Image"
+        )  # https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/Image
         and (
             tp != "WebGL2RenderingContext"
         )  # https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext
@@ -473,11 +527,38 @@ for tp in TYPES:
             tp != "BufferAttributeUsage"
         )  # https://threejs.org/docs/?q=BufferAttribute#api/en/constants/BufferAttributeUsage
         and (
-            tp != "TextureFormat"
+            tp != "FormatConstant"
         )  # https://threejs.org/docs/?q=CubeTexture#api/en/constants/Textures (Formats)
         and (
             tp != "RenderTarget"
         )  # https://threehttps://threejs.org/docs/?q=RenderTar#api/en/renderers/WebGLRenderTarget etc
+        and (
+            tp != "BlendingMode"
+        )  # https://threejs.org/docs/?q=Materials#api/en/constants/Materials
+        and (
+            tp != "ToneMappingConstant"
+        )  # https://threejs.org/docs/?q=WebGLRenderer#api/en/constants/Renderer
+        and (
+            tp != "TypeConstant"
+        )  # https://threejs.org/docs/?q=DepthTexture#api/en/constants/Textures
+        and (
+            tp != "MappingModeConstant"
+        )  # https://threejs.org/docs/?q=DepthTexture#api/en/constants/Textures
+        and (
+            tp != "WrappingModeConstant"
+        )  # https://threejs.org/docs/?q=DepthTexture#api/en/constants/Textures
+        and (
+            tp != "MagnificationFilterConstant"
+        )  # https://threejs.org/docs/?q=DepthTexture#api/en/constants/Textures
+        and (
+            tp != "MinificationFilterConstant"
+        )  # https://threejs.org/docs/?q=DepthTexture#api/en/constants/Textures
+        and (
+            tp != "InterpolationModeConstant"
+        )  # https://threejs.org/docs/?q=KeyframeTrack#api/en/constants/Animation
+        and (
+            tp != "EncodingConstant"
+        )  # https://threejs.org/docs/?q=DepthTexture#api/en/constants/Textures
     ):
         raise ValueError(tp)
 ######
