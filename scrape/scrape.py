@@ -11,19 +11,60 @@ class FileType(Enum):
     CLASS = 2
 
 
+@dataclass
+class OptionalArg:
+    val: "ArgTp"
+
+
+@dataclass
+class ArrayArg:
+    val: "ArgTp"
+
+
+@dataclass
+class MutableArrayArg:
+    val: "ArgTp"
+
+
+@dataclass
+class ObjectArg:
+    vals: Sequence["ArgTp"]
+
+
+@dataclass
+class RecordArg:
+    val: "ArgTp"
+
+
+@dataclass
+class UnionArg:
+    left: "ArgTp"
+    right: "ArgTp"
+
+
+ArgTp = (
+    str | ArrayArg | RecordArg | MutableArrayArg | ObjectArg | OptionalArg | UnionArg
+)
+
 #### ADT 1 for parsing
+
+
+@dataclass
+class Constant:
+    name: str
+    constants: Sequence[str]
 
 
 @dataclass
 class Arg:
     name: str
-    tp: str
+    tp: ArgTp
 
 
 @dataclass
 class Property:
     name: str
-    tp: str
+    tp: ArgTp
 
 
 @dataclass
@@ -34,7 +75,7 @@ class Ctor:
 @dataclass
 class Method:
     args: Sequence[Arg]
-    retval: str
+    retval: ArgTp
     name: str
 
 
@@ -47,6 +88,7 @@ class ThreeFile:
     ctor: Optional[Ctor] = None
     properties: Optional[Sequence[Property]] = None
     methods: Optional[Sequence[Method]] = None
+    constants: Optional[Sequence[Constant]] = None
 
 
 @dataclass
@@ -96,26 +138,81 @@ def fixParam(f, t, n, p):
         else "ToneMappingConstant"
         if (p == "Constant") and (f == "WebGLRenderer")
         else "InterpolationModeConstant"
-        if (p == "Constant") and (f == "KeyframeTrack" or f == "BooleanKeyframeTrack" or f == "StringKeyframeTrack" or f == "QuaternionKeyframeTrack") # more nuanced needed?
+        if (p == "Constant")
+        and (
+            f == "KeyframeTrack"
+            or f == "BooleanKeyframeTrack"
+            or f == "StringKeyframeTrack"
+            or f == "QuaternionKeyframeTrack"
+        )  # more nuanced needed?
         else "TypeConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "type")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "type")
         else "MappingModeConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "mapping")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "mapping")
         else "WrappingModeConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "wrapS")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "wrapS")
         else "WrappingModeConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "wrapT")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "wrapT")
         else "MagnificationFilterConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "magFilter")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "magFilter")
         else "MinificationFilterConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "minFilter")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "minFilter")
         else "FormatConstant"
-        if (p == "Constant") and (f == "DepthTexture" or f == "CompressedTexture" or f == "VideoTexture" or f == "CanvasTexture") and (n == "format")
+        if (p == "Constant")
+        and (
+            f == "DepthTexture"
+            or f == "CompressedTexture"
+            or f == "VideoTexture"
+            or f == "CanvasTexture"
+        )
+        and (n == "format")
         else "Material"
         if p == "material"
         else "Material"
         if p == "Material"
-        else "BufferAttributeUsage"
+        else "GeometryUsageConstant"
         if p == "Usage"
         else p
         if "/" not in p
@@ -146,6 +243,38 @@ for root, dirs, files in os.walk("./three.js/docs/api/en", topdown=False):
                     else FileType.CONSTANTS,
                     path=fullPath,
                 )
+                if threeFile.fileType == FileType.CONSTANTS:
+                    ## we use a special parser
+                    constants = []
+                    curElt = soup.find_all("h2")[0]
+                    curName = None
+                    while True:
+                        curElt = curElt.next_sibling
+                        if curElt is None:
+                            break
+                        if curElt.name == "h2":
+                            curName = curElt.string
+                        if curElt.name == "code":
+                            consts = [
+                                y
+                                for y in [
+                                    x.replace("THREE.", "")
+                                    .replace(" ", "")
+                                    .replace("\t", "")
+                                    for x in curElt.string.split("\n")
+                                ]
+                                if y != ""
+                            ]
+                            if curName is not None:
+                                constants.append(
+                                    Constant(
+                                        name=curName.replace(" ", "") + "Constant",
+                                        constants=consts,
+                                    )
+                                )
+                    threeFile.constants = constants
+                    FILES.append(threeFile)
+                    continue
                 ### We look up the file in the actual source to see if it extends something
                 if threeFile.name in SOURCE:
                     with open(SOURCE[threeFile.name]) as src:
@@ -284,14 +413,16 @@ for root, dirs, files in os.walk("./three.js/docs/api/en", topdown=False):
                             )
                             # internal, so skip
                             # https://threejs.org/docs/?q=WebGLRenderer#api/en/renderers/WebGLRenderer.renderLists
-                            if (property[1] == "renderLists") and (property[0] == "WebGLRenderLists"):
+                            if (property[1] == "renderLists") and (
+                                property[0] == "WebGLRenderLists"
+                            ):
                                 continue
                             # Shadow maps are objects, so fill this in later
-                            if (property[1] == "shadowMap"):
+                            if property[1] == "shadowMap":
                                 property[0] = "Object"
-                            if (property[1] == ".generateMipmaps"):
+                            if property[1] == ".generateMipmaps":
                                 property[1] = "generateMipmaps"
-                            if (property[1] == "generateMipmaps"):
+                            if property[1] == "generateMipmaps":
                                 property[0] = "Boolean"
                             property = Property(
                                 property[1],
@@ -434,11 +565,11 @@ for fi in FILES:
                 print(fi.name, "ctor", arg)
     if fi.properties is not None:
         for prop_ in fi.properties:
-            if '[' in prop_.tp and 'Texture' in prop_.tp:
+            if "[" in prop_.tp and "Texture" in prop_.tp:
                 prop_.tp = TEXTURE_PROPS[prop_.name]
             prop = massageArg(prop_)
             if fi.name == "Texture":
-                TEXTURE_PROPS[prop_.name] = prop                
+                TEXTURE_PROPS[prop_.name] = prop
             TYPES.add(prop)
             if prop == CHECKING:
                 print(fi.name, prop, prop_)
@@ -524,8 +655,8 @@ for tp in sorted(TYPES):
             tp != "Video"
         )  # https://developer.mozilla.org/en-US/docs/Web/API/HTMLVideoElement
         and (
-            tp != "BufferAttributeUsage"
-        )  # https://threejs.org/docs/?q=BufferAttribute#api/en/constants/BufferAttributeUsage
+            tp != "GeometryUsageConstant"
+        )  # https://threejs.org/docs/?q=BufferAttribute#api/en/constants/GeometryUsageConstant
         and (
             tp != "FormatConstant"
         )  # https://threejs.org/docs/?q=CubeTexture#api/en/constants/Textures (Formats)
@@ -563,50 +694,531 @@ for tp in sorted(TYPES):
         raise ValueError(tp)
 ######
 
-deferred = []
 
-with open("types.py", "w") as outfi:
-    outfi.write(
-        """from typing import Optional, Sequence
-from bs4 import BeautifulSoup
-import os
-from dataclasses import dataclass
-from enum import Enum
+# Obj and Array checking
+directives = []
 
-"""
+RAYCASTER_INTERSECTIONS = ArrayArg(
+    val=ObjectArg(
+        vals=[
+            Arg("distance", "Number"),
+            Arg("point", "Vector3"),
+            Arg("face", "Face"),
+            Arg("faceIndex", "Integer"),
+            Arg("object", "Object3D"),
+            Arg("uv", OptionalArg("Vector2")),
+            Arg("uv2", OptionalArg("Vector2")),
+            Arg("instanceId", OptionalArg("Integer")),
+        ]
     )
-    outfi.write(
-        f"""@dataclass
-class XUnion:
-    left: 'XType'
-    right: 'XType'
-"""
-    )
-    for tp in TYPES:
-        if tp == "Array_or_Integer":
-            deferred.append(
-                "Array_or_Integer = XUnion(left=XArray(val=XInteger()), right=XInteger())\n"
+)
+# PLACEHOLDER = "Array"
+for fi in FILES:
+    if fi.name == "UniformsUtils":
+        # merge uniforms
+        fi.methods[1].args[0].tp = ArrayArg(val="UniformDefinition")
+    elif fi.name == "WebGLRenderer":
+        # clippingPlanes
+        fi.properties[6].tp = ArrayArg(val="Plane")
+    elif fi.name == "WebGLMultipleRenderTargets":
+        # texture
+        fi.properties[1].tp = ArrayArg(val="Texture")
+    elif fi.name == "Texture":
+        # mipmaps
+        fi.properties[5].tp = ArrayArg(val="Image")  # is this correct?
+    elif fi.name == "CompressedTexture":
+        # mipmaps
+        fi.ctor.args[0].tp = ArrayArg(val="Image")  # is this correct?
+    elif fi.name == "Material":
+        # clippingPlanes
+        fi.properties[10].tp = ArrayArg(val="Plane")
+    elif fi.name == "BufferAttribute":
+        # copyArray array
+        fi.methods[6].args[0].tp = UnionArg(
+            left=ArrayArg(val="Number"), right="TypedArray"
+        )
+        # set value
+        fi.methods[13].args[0].tp = UnionArg(
+            left=ArrayArg(val="Number"), right="TypedArray"
+        )
+    elif fi.name == "Object3D":
+        # children
+        fi.properties[2].tp = ArrayArg(val="Object3D")
+        # add objects
+        fi.methods[0].args[0].tp = ArrayArg(val="Object3D")
+        # raycast RETVAL
+        fi.methods[15].retval = ArrayArg(val="Object3D")
+        # raycast intersects
+        fi.methods[15].args[1].tp = ArrayArg(val="Object3D")
+        # remove objects
+        fi.methods[16].args[0].tp = ArrayArg(val="Object3D")
+    elif fi.name == "BufferGeometry":
+        # groups
+        fi.properties[4].tp = ArrayArg(
+            val=ObjectArg(
+                vals=[
+                    Arg(name="start", tp="Integer"),
+                    Arg(name="count", tp="Integer"),
+                    Arg(name="materialIndex", tp="Integer"),
+                ]
             )
-        elif tp == "Color_Hex_or_String":
-            deferred.append(
-                "Color_Hex_or_String = XUnion(left=XColor(), right=XUnion(left=XHex(), right=XString()))\n"
-            )
-        elif tp in ["Array", "Object"]:
-            outfi.write(
-                f"""@dataclass
-class X{tp}:
-    val: 'XType'
-"""
-            )
-        else:
-            outfi.write(
-                f"""@dataclass
-class X{tp}: pass
-"""
-            )
-    for line in deferred:
-        outfi.write(line)
-    outfi.write(
-        "XType = "
-        + (" | ".join(["X" + tp for tp in TYPES if "_" not in tp] + ["XUnion"]))
-    )
+        )
+        # setFromPoints points
+        fi.methods[24].args[0].tp = ArrayArg(val="Vector3")
+    elif fi.name == "InterleavedBuffer":
+        # array
+        fi.properties[0].tp = "TypedArray"
+    elif fi.name == "Raycaster":
+        # intersectObject RETVAL
+        fi.methods[2].retval = RAYCASTER_INTERSECTIONS
+        # intersectObject optionalTarget
+        ### We lob this off in our API
+        ### hackish, but works
+        fi.methods[2].args.pop(2)
+        # intersectObjects RETVAL
+        fi.methods[3].retval = RAYCASTER_INTERSECTIONS
+        # intersectObjects objects
+        fi.methods[3].args[0].tp = ArrayArg(val="Object3D")
+        # intersectObjects optionalTarget
+        ### We lob this off in our API
+        ### hackish, but works
+        fi.methods[3].args.pop(2)
+    elif fi.name == "StringKeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+        # ValueBufferType
+        fi.properties[1].tp = ArrayArg(val="Number")
+    elif fi.name == "QuaternionKeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+    elif fi.name == "VectorKeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+    elif fi.name == "BooleanKeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+        # ValueBufferType
+        fi.properties[1].tp = ArrayArg(val="Number")
+    elif fi.name == "NumberKeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+    elif fi.name == "ColorKeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+    elif fi.name == "AnimationClip":
+        # tracks
+        fi.ctor.args[2].tp = ArrayArg(val="KeyframeTrack")
+        # tracks
+        fi.properties[3].tp = ArrayArg(val="KeyframeTrack")
+    elif fi.name == "KeyframeTrack":
+        # times
+        fi.ctor.args[1].tp = ArrayArg(val="Number")
+        # values
+        fi.ctor.args[2].tp = ArrayArg(val="Number")
+    elif fi.name == "AnimationObjectGroup":
+        # objects
+        fi.ctor.args[0].tp = ArrayArg(val="Mesh")
+        # add objects
+        fi.methods[0].args[0].tp = ArrayArg(val="Mesh")
+        # remove objects
+        fi.methods[1].args[0].tp = ArrayArg(val="Mesh")
+        # uncache objects
+        fi.methods[2].args[0].tp = ArrayArg(val="Mesh")
+    elif fi.name == "Sprite":
+        # raycast intersects
+        fi.methods[2].args[1].tp = RAYCASTER_INTERSECTIONS
+    elif fi.name == "Skeleton":
+        # bones
+        fi.ctor.args[0].tp = ArrayArg(val="Bone")
+        # boneInverses
+        fi.ctor.args[1].tp = ArrayArg(val="Matrix4")
+        # bones
+        fi.properties[0].tp = ArrayArg(val="Bone")
+        # boneInverses
+        fi.properties[1].tp = ArrayArg(val="Matrix4")
+    elif fi.name == "LOD":
+        # levels
+        fi.properties[2].tp = ArrayArg(
+            val=ObjectArg(vals=[Arg("object", "Object3D"), Arg("distance", "Number")])
+        )
+        # raycast RETVAL
+        ### there's currently a bug in the source where this is
+        ### _not_ correct, it should return an array but it doesn't
+        fi.methods[4].retval = "undefined"
+        # raycast intersects
+        ### hack, pop it off
+        fi.methods[4].args[1].tp = MutableArrayArg(val=RAYCASTER_INTERSECTIONS)
+    elif fi.name == "Points":
+        # morphTargetInfluences
+        fi.properties[3].tp = ArrayArg(val="Number")
+        # raycast intersects
+        fi.methods[0].args[1].tp = MutableArrayArg(val=RAYCASTER_INTERSECTIONS)
+    elif fi.name == "Mesh":
+        # morphTargetInfluences
+        fi.properties[3].tp = ArrayArg(val="Number")
+        # raycast intersects
+        fi.methods[1].args[1].tp = MutableArrayArg(val=RAYCASTER_INTERSECTIONS)
+    elif fi.name == "Line":
+        # morphTargetInfluences
+        fi.properties[3].tp = ArrayArg(val="Number")
+        # raycast intersects
+        fi.methods[1].args[1].tp = MutableArrayArg(val=RAYCASTER_INTERSECTIONS)
+    elif fi.name == "ArrayCamera":
+        # array
+        fi.ctor.args[0].tp = ArrayArg(val="Camera")
+        # cameras
+        fi.properties[0].tp = ArrayArg(val="Camera")
+    elif fi.name == "LinearInterpolant":
+        # evaluate RETVAL
+        fi.methods[0].retval = "FloatArray32"
+    elif fi.name == "CubicInterpolant":
+        # evaluate RETVAL
+        fi.methods[0].retval = "FloatArray32"
+    elif fi.name == "DiscreteInterpolant":
+        # evaluate RETVAL
+        fi.methods[0].retval = "FloatArray32"
+    elif fi.name == "QuaternionLinearInterpolant":
+        # evaluate RETVAL
+        fi.methods[0].retval = "FloatArray32"
+    elif fi.name == "Triangle":
+        # setFromPointsAndIndices points
+        fi.methods[15].args[0].tp = ArrayArg(val="Vector3")
+    elif fi.name == "SphericalHarmonics3":
+        # coefficients
+        fi.properties[0].tp = ArrayArg(val="Vector3")
+        # fromArray array
+        fi.methods[5].args[0].tp = ArrayArg(val="Number")
+        # set coefficients
+        fi.methods[10].args[0].tp = ArrayArg(val="Vector3")
+        # toArray RETVAL
+        fi.methods[11].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack, make it pure
+        fi.methods[11].args = []
+    elif fi.name == "Matrix3":
+        # elements
+        fi.properties[0].tp = ArrayArg(val="Number")
+        # fromArray array
+        fi.methods[5].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[18].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack make pure
+        fi.methods[18].args = []
+        # transposeIntoArray array
+        fi.methods[21].args[0].tp = MutableArrayArg(val="Number")
+    elif fi.name == "Box2":
+        # setFromPoints points
+        fi.methods[19].args[0].tp = ArrayArg(val="Number")
+    elif fi.name == "Vector2":
+        # fromArray array
+        fi.methods[21].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[47].retval = ArrayArg(val="Number")
+        # toArray array
+        # hack make pure
+        fi.methods[47].args = []
+    elif fi.name == "Frustum":
+        # planes
+        fi.properties[0].tp = ArrayArg(val="Plane")
+    elif fi.name == "Interpolant":
+        # evaluate RETVAL
+        fi.methods[0].retval = "FloatArray32"
+    elif fi.name == "Vector3":
+        # fromArray array
+        fi.methods[27].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[67].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack make pure
+        fi.methods[67].args = []
+    elif fi.name == "Sphere":
+        # setFromPoints points
+        fi.methods[15].args[0].tp = ArrayArg(val="Vector3")
+    elif fi.name == "Box3":
+        # setFromArray array
+        fi.methods[24].args[0].tp = ArrayArg(val="Number")
+        # setFromPoints points
+        fi.methods[28].args[0].tp = ArrayArg(val="Vector3")
+    elif fi.name == "Vector4":
+        # fromArray array
+        fi.methods[15].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[44].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack make pure
+        fi.methods[44].args = []
+    elif fi.name == "Quaternion":
+        # fromArray array
+        fi.methods[6].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[24].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack make pure
+        fi.methods[24].args = []
+    elif fi.name == "Matrix4":
+        # elements
+        fi.properties[0].tp = ArrayArg(val="Number")
+        # fromArray array
+        fi.methods[9].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[35].retval = ArrayArg(val="Number")
+        ### hack make pure
+        fi.methods[35].args = []
+    elif fi.name == "Color":
+        # fromArray array
+        fi.methods[10].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[30].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack make pure
+        fi.methods[30].args = []
+    elif fi.name == "Euler":
+        # fromArray array
+        fi.methods[3].args[0].tp = ArrayArg(val="Number")
+        # toArray RETVAL
+        fi.methods[9].retval = ArrayArg(val="Number")
+        # toArray array
+        ### hack make pure
+        fi.methods[9].args = []
+    elif fi.name == "TubeGeometry":
+        # tangents
+        fi.properties[1].tp = ArrayArg(val="Vector3")
+        # normals
+        fi.properties[2].tp = ArrayArg(val="Vector3")
+        # binormals
+        fi.properties[3].tp = ArrayArg(val="Vector3")
+    elif fi.name == "ExtrudeGeometry":
+        # shapes
+        fi.ctor.args[0].tp = ArrayArg(val="Shape")
+    elif fi.name == "LatheGeometry":
+        # points
+        fi.ctor.args[0].tp = ArrayArg(val="Vector3")
+    elif fi.name == "ShapeGeometry":
+        # shapes
+        fi.ctor.args[0].tp = ArrayArg(val="Shape")
+    elif fi.name == "PolyhedronGeometry":
+        # vertices
+        fi.ctor.args[0].tp = ArrayArg(val="OneOrMinusOne")
+        # indices
+        fi.ctor.args[1].tp = ArrayArg(val="Integer")
+    elif fi.name == "AnimationLoader":
+        # parse RETVAL
+        fi.methods[1].retval = ArrayArg(val="AnimationClip")
+    elif fi.name == "SkeletonHelper":
+        # bones
+        fi.properties[0].tp = ArrayArg(val="Bone")
+    elif fi.name == "CurvePath":
+        # curves
+        fi.properties[0].tp = ArrayArg(val="Curve")
+        # getCurveLengths RETVAL
+        fi.methods[2].retval = ArrayArg(val="Number")
+        # getPoints RETVAL
+        fi.methods[3].retval = ArrayArg(val="Vector2")
+        # getSpacedPoints RETVAL
+        fi.methods[4].retval = ArrayArg(val="Vector2")
+    elif fi.name == "ShapePath":
+        # subPaths
+        fi.properties[0].tp = ArrayArg(val="Path")
+        # currentPath
+        fi.properties[1].tp = ArrayArg(val="Path")
+        # splineThru points
+        fi.methods[4].args[0].tp = ArrayArg(val="Vector2")
+        # toShapes RETVAL
+        fi.methods[5].retval = ArrayArg(val="Shape")
+    elif fi.name == "Curve":
+        # getPoints RETVAL
+        fi.methods[2].retval = ArrayArg(val="Vector2")
+        # getSpacedPoints RETVAL
+        fi.methods[3].retval = ArrayArg(val="Vector2")
+        # getLengths RETVAL
+        fi.methods[5].retval = ArrayArg(val="Number")
+    elif fi.name == "Shape":
+        # points
+        fi.ctor.args[0].tp = ArrayArg(val="Vector2")
+        # holes
+        fi.properties[1].tp = ArrayArg(val="Vector2")
+        # extractPoints RETVAL
+        fi.methods[0].retval = ArrayArg(val="Vector2")
+        # getPointsHoles RETVAL
+        fi.methods[1].retval = ArrayArg(val="Vector2")
+    elif fi.name == "Path":
+        # points
+        fi.ctor.args[0].tp = ArrayArg(val="Vector2")
+        # setFromPoints vector2s
+        fi.methods[8].args[0].tp = ArrayArg(val="Vector2")
+        # splineThru points
+        fi.methods[9].args[0].tp = ArrayArg(val="Vector2")
+    elif fi.name == "SplineCurve":
+        # points
+        fi.ctor.args[0].tp = ArrayArg(val="Vector2")
+        # points
+        fi.properties[0].tp = ArrayArg(val="Vector2")
+    elif fi.name == "CatmullRomCurve3":
+        # points
+        fi.ctor.args[0].tp = ArrayArg(val="Vector2")
+        # points
+        fi.properties[0].tp = ArrayArg(val="Vector2")
+
+
+for fi in FILES:
+    if fi.name == "WebGLProgram":
+        # getUniforms RETVAL
+        fi.methods[0].retval = "UniformDefinition"
+        # getAttributes RETVAL
+        fi.methods[1].retval = "AttributeDefinition"
+    elif fi.name == "UniformsUtils":
+        # clone RETVAL
+        fi.methods[0].retval = "UniformDefinition"
+        # merge RETVAL
+        fi.methods[1].retval = "UniformDefinition"
+    elif fi.name == "Texture":
+        # toJSON RETVAL
+        fi.methods[2].retval = "JSON"
+    elif fi.name == "Source":
+        # toJSON RETVAL
+        fi.methods[0].retval = "JSON"
+    elif fi.name == "Scene":
+        # toJSON RETVAL
+        fi.methods[0].retval = "JSON"
+    elif fi.name == "FogExp2":
+        # toJSON RETVAL
+        fi.methods[1].retval = "JSON"
+    elif fi.name == "Fog":
+        # toJSON RETVAL
+        fi.methods[1].retval = "JSON"
+    elif fi.name == "Material":
+        # toJSON RETVAL
+        fi.methods[6].retval = "JSON"
+    elif fi.name == "Object3D":
+        # toJSON RETVAL
+        fi.methods[28].retval = "JSON"
+    elif fi.name == "BufferGeometry":
+        # toJSON RETVAL
+        fi.methods[26].retval = "JSON"
+    elif fi.name == "InterleavedBuffer":
+        # toJSON RETVAL
+        fi.methods[5].retval = "JSON"
+    elif fi.name == "AnimationClip":
+        # toJSON RETVAL
+        fi.methods[3].retval = "JSON"
+    elif fi.name == "LOD":
+        # toJSON RETVAL
+        fi.methods[5].retval = "JSON"
+    elif fi.name == "OrthographicCamera":
+        # toJSON RETVAL
+        fi.methods[3].retval = "JSON"
+    elif fi.name == "PerspectiveCamera":
+        # toJSON RETVAL
+        fi.methods[8].retval = "JSON"
+    elif fi.name == "Color":
+        # getHSL RETVAL
+        fi.methods[14].retval = ObjectArg(
+            vals=[Arg("h", "Number"), Arg("s", "Number"), Arg("l", "Number")]
+        )
+    elif fi.name == "ObjectLoader":
+        # parseGeometries RETVAL
+        fi.methods[2].retval = RecordArg(val="Geometry")
+        # parseMaterials RETVAL
+        fi.methods[3].retval = RecordArg(val="Material")
+        # parseAnimations RETVAL
+        fi.methods[4].retval = RecordArg(val="Animation")
+        # parseImages RETVAL
+        fi.methods[5].retval = RecordArg(val="Image")
+        # parseTextures RETVAL
+        fi.methods[6].retval = RecordArg(val="Texture")
+    elif fi.name == "LightShadow":
+        # toJSON RETVAL
+        fi.methods[7].retval = "JSON"
+    elif fi.name == "Light":
+        # toJSON RETVAL
+        fi.methods[2].retval = "JSON"
+    elif fi.name == "Curve":
+        # computeFrenetFrames RETVAL
+        fi.methods[10].retval = ObjectArg(
+            vals=[
+                Arg("tangents", ArrayArg(val="Vector3")),
+                Arg("normals", ArrayArg(val="Vector3")),
+                Arg("binormals", ArrayArg(val="Vector3")),
+            ]
+        )
+        # toJSON RETVAL
+        fi.methods[13].retval = "JSON"
+    elif fi.name == "ImageUtils":
+        # sRGBToLinear RETVAL
+        fi.methods[1].retval = ObjectArg(
+            vals=[
+                Arg("data", ArrayArg(val="ImageData")),
+                Arg("width", ArrayArg(val="Number")),
+                Arg("height", ArrayArg(val="Number")),
+            ]
+        )
+CHECKING2 = "Object"
+for run in [True]:
+
+    def rprint(*args):
+        if run:
+            directives.append(args)
+
+    for fi in FILES:
+        #### logic for array replacement
+        ####
+        if fi.ctor is not None:
+            for i in range(len(fi.ctor.args)):
+                arg = fi.ctor.args[i]
+                if arg == CHECKING2:
+                    rprint(fi.name, "CTOR", fi.ctor.args[i].name, arg, i)
+        if fi.properties is not None:
+            for i in range(len(fi.properties)):
+                prop_ = fi.properties[i]
+                prop = prop_
+                if prop == CHECKING2:
+                    rprint(fi.name, "PROP", prop_.name, prop, i)
+        if fi.methods is not None:
+            for i in range(len(fi.methods)):
+                method = fi.methods[i]
+                if method.retval == CHECKING2:
+                    rprint(fi.name, "RETVAL", method.name, i)
+                for j in range(len(method.args)):
+                    arg = method.args[j]
+                    arg = arg
+                    if arg == CHECKING2:
+                        rprint(
+                            fi.name,
+                            "METHOD",
+                            method.name,
+                            arg,
+                            i,
+                            method.args[j].name,
+                            j,
+                        )
+
+FILENAME = None
+# for directive in directives:
+#     if directive[0] != FILENAME:
+#         FILENAME = directive[0]
+#         print(f'elif fi.name == "{FILENAME}":')
+#     if directive[1] == "CTOR":
+#         print(f'    # {directive[2]}')
+#         print(f'    fi.ctor.args[{directive[4]}].tp = PLACEHOLDER')
+#     elif directive[1] == "PROP":
+#         print(f'    # {directive[2]}')
+#         print(f'    fi.properties[{directive[4]}].tp = PLACEHOLDER')
+#     elif directive[1] == "RETVAL":
+#         print(f'    # {directive[2]} RETVAL')
+#         print(f'    fi.methods[{directive[3]}].retval = PLACEHOLDER')
+#     elif directive[1] == "METHOD":
+#         print(f'    # {directive[2]} {directive[5]}')
+#         print(f'    fi.methods[{directive[4]}].args[{directive[6]}].tp = PLACEHOLDER')
