@@ -1223,18 +1223,19 @@ FILENAME = None
 #         print(f'    # {directive[2]} {directive[5]}')
 #         print(f'    fi.methods[{directive[4]}].args[{directive[6]}].tp = PLACEHOLDER')
 
-import dataclasses, json
+if __name__ == '__main__':
+    import dataclasses, json
 
-class EnhancedJSONEncoder(json.JSONEncoder):
-        def default(self, o):
-            if dataclasses.is_dataclass(o):
-                return dataclasses.asdict(o)
-            if o == FileType.CONSTANTS: return "CONSTANTS"
-            if o == FileType.CLASS: return "CLASS"
-            # print(o)
-            return super().default(o)
+    class EnhancedJSONEncoder(json.JSONEncoder):
+            def default(self, o):
+                if dataclasses.is_dataclass(o):
+                    return dataclasses.asdict(o)
+                if o == FileType.CONSTANTS: return "CONSTANTS"
+                if o == FileType.CLASS: return "CLASS"
+                # print(o)
+                return super().default(o)
 
-# for fi in FILES: print(fi)
-import sys
-sys.setrecursionlimit(10000)
-print(json.dumps(FILES, cls=EnhancedJSONEncoder, indent=2))
+    # for fi in FILES: print(fi)
+    import sys
+    sys.setrecursionlimit(10000)
+    print(json.dumps(FILES, cls=EnhancedJSONEncoder, indent=2))
