@@ -265,10 +265,10 @@ for root, dirs, files in os.walk("./three.js/docs/api/en", topdown=False):
                                 ]
                                 if y != ""
                             ]
-                            if curName is not None:
+                            if curName is not None and 'Internal' not in curName:
                                 constants.append(
                                     Constant(
-                                        name=curName.replace(" ", "") + "Constant",
+                                        name=curName.replace(" ", "").replace('/','_') + "Constant",
                                         constants=consts,
                                     )
                                 )
@@ -282,17 +282,19 @@ for root, dirs, files in os.walk("./three.js/docs/api/en", topdown=False):
                         done = False
                         extends = None
                         i = 0
-                        while (not done) and (i < len(lines)):
-                            x = lines[i]
-                            if ("class " in x) and (" extends " in x):
-                                x = x.split(" ")
-                                for r in range(len(x)):
-                                    if x[r] == "extends":
-                                        extends = x[r + 1]
-                                        done = True
-                                        break
-                            i += 1
-                        threeFile.extends = extends
+                        if threeFile.name == "BufferAttribute": pass
+                        else:
+                            while (not done) and (i < len(lines)):
+                                x = lines[i]
+                                if ("class " in x) and (" extends " in x):
+                                    x = x.split(" ")
+                                    for r in range(len(x)):
+                                        if x[r] == "extends":
+                                            extends = x[r + 1]
+                                            done = True
+                                            break
+                                i += 1
+                            threeFile.extends = extends
 
                 ### Skip PropertyBinding for now as there's too much undocumented stuff, come back to it later
                 if "PropertyBinding" == threeFile.name:
